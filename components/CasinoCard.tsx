@@ -1,9 +1,9 @@
 import Link from 'next/link';
-import { Casino } from '@/lib/casinos';
+import { NormalizedCasino } from '@/lib/normalize';
 import StarRating from './StarRating';
 
 interface CasinoCardProps {
-  casino: Casino;
+  casino: NormalizedCasino;
   rank?: number;
   variant?: 'full' | 'compact';
 }

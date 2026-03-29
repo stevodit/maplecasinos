@@ -1,6 +1,7 @@
+export const dynamic = 'force-dynamic';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { casinos } from '@/lib/casinos';
+import { getAllCasinos, getCasinosByProvince } from '@/lib/data';
 import CasinoCard from '@/components/CasinoCard';
 
 export const metadata: Metadata = {
@@ -9,16 +10,20 @@ export const metadata: Metadata = {
     'Compare all licensed online casinos in Ontario and Alberta. Expert ratings, honest reviews, and exclusive bonuses for Canadian players.',
 };
 
+// Revalidate every hour so changes in the CMS are reflected
+export const revalidate = 3600;
+
 interface PageProps {
-  searchParams: { province?: string };
+  searchParams: Promise<{ province?: string }>;
 }
 
-export default function CasinosPage({ searchParams }: PageProps) {
-  const provinceFilter = searchParams.province as 'Ontario' | 'Alberta' | undefined;
+export default async function CasinosPage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const provinceFilter = params.province as 'Ontario' | 'Alberta' | undefined;
 
   const filtered = provinceFilter
-    ? casinos.filter((c) => c.province.includes(provinceFilter))
-    : casinos;
+    ? await getCasinosByProvince(provinceFilter)
+    : await getAllCasinos();
 
   return (
     <>
@@ -78,11 +83,9 @@ export default function CasinosPage({ searchParams }: PageProps) {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {[...filtered]
-            .sort((a, b) => b.rating - a.rating)
-            .map((casino, i) => (
-              <CasinoCard key={casino.slug} casino={casino} rank={i + 1} />
-            ))}
+          {filtered.map((casino, i) => (
+            <CasinoCard key={casino.slug} casino={casino} rank={i + 1} />
+          ))}
         </div>
 
         {filtered.length === 0 && (

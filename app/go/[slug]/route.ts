@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCasinoBySlug } from '@/lib/casinos';
+import { getCasinoBySlug } from '@/lib/data';
 
-// Simple in-memory click log (in production, use a database)
+// Simple in-memory click log (in production, use a database or analytics service)
 const clickLog: { slug: string; timestamp: string; userAgent: string | null; ref: string | null }[] = [];
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
-  const { slug } = params;
-  const casino = getCasinoBySlug(slug);
+  const { slug } = await params;
+  const casino = await getCasinoBySlug(slug);
 
   // Log the click (in production: persist to DB / analytics)
   const clickData = {

@@ -1,15 +1,28 @@
+export const dynamic = 'force-dynamic';
 import Link from 'next/link';
-import { casinos, getFeaturedCasinos } from '@/lib/casinos';
+import { getAllCasinos, getFeaturedCasinos } from '@/lib/data';
 import CasinoCard from '@/components/CasinoCard';
 import StarRating from '@/components/StarRating';
 
-export default function HomePage() {
-  const featured = getFeaturedCasinos().slice(0, 5);
-  const topThree = featured.slice(0, 3);
+export const revalidate = 3600;
+
+export default async function HomePage() {
+  const [featured, allCasinos] = await Promise.all([
+    getFeaturedCasinos(),
+    getAllCasinos(),
+  ]);
+
+  // Fall back to top-rated casinos if no featured are set
+  const featuredList = featured.length > 0 ? featured.slice(0, 5) : allCasinos.slice(0, 5);
+  const topThree = featuredList.slice(0, 3);
+
+  const ontarioCount = allCasinos.filter(c => c.province.includes('Ontario')).length;
+  const albertaCount = allCasinos.filter(c => c.province.includes('Alberta')).length;
+  const totalCount = allCasinos.length;
 
   return (
     <>
-      {/* section */}
+      {/* Hero section */}
       <section className="bg-hero-pattern relative overflow-hidden">
         {/* decorative maple leaves */}
         <div className="absolute inset-0 opacity-5 pointer-events-none select-none">
@@ -75,12 +88,12 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* section */}
+      {/* Stats bar */}
       <section className="bg-gray-50 border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
             {[
-              { value: '6', label: 'Licensed Casinos Reviewed', icon: '🏆' },
+              { value: totalCount.toString(), label: 'Licensed Casinos Reviewed', icon: '🏆' },
               { value: '50+', label: 'Bonuses Tracked', icon: '🎁' },
               { value: '100%', label: 'AGCO Regulated', icon: '🛡️' },
               { value: '19+', label: 'Age Restriction', icon: '🔞' },
@@ -95,7 +108,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* section */}
+      {/* Top casinos */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 py-16">
         <div className="flex items-end justify-between mb-8">
           <div>
@@ -116,7 +129,7 @@ export default function HomePage() {
 
         {/* Remaining as compact */}
         <div className="mt-6 space-y-3">
-          {featured.slice(3).map((casino, i) => (
+          {featuredList.slice(3).map((casino, i) => (
             <CasinoCard key={casino.slug} casino={casino} rank={i + 4} variant="compact" />
           ))}
         </div>
@@ -128,7 +141,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* section */}
+      {/* Bonus cards */}
       <section className="bg-gradient-to-b from-forest-900 to-green-900 py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-10">
@@ -138,7 +151,7 @@ export default function HomePage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {featured.slice(0, 6).map((casino) => (
+            {featuredList.slice(0, 6).map((casino) => (
               <div key={casino.slug} className="bg-white/10 backdrop-blur border border-white/20 rounded-2xl p-5 hover:bg-white/15 transition-all group">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-12 h-12 rounded-xl bg-gold-500 flex items-center justify-center shadow-md flex-shrink-0">
@@ -179,7 +192,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* section */}
+      {/* Why trust us */}
       <section className="bg-gray-50 py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-12">
@@ -234,7 +247,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* section */}
+      {/* Province cards */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 py-16">
         <div className="text-center mb-10">
           <h2 className="section-title">Find Casinos Near You</h2>
@@ -247,7 +260,7 @@ export default function HomePage() {
               <span className="text-4xl">🏙️</span>
               <div>
                 <h3 className="font-display text-2xl font-bold text-forest-900">Ontario</h3>
-                <p className="text-gray-500 text-sm">{casinos.filter(c => c.province.includes('Ontario')).length} Licensed Casinos</p>
+                <p className="text-gray-500 text-sm">{ontarioCount} Licensed Casinos</p>
               </div>
             </div>
             <p className="text-gray-600 text-sm leading-relaxed mb-4">
@@ -265,7 +278,7 @@ export default function HomePage() {
               <span className="text-4xl">🏔️</span>
               <div>
                 <h3 className="font-display text-2xl font-bold text-forest-900">Alberta</h3>
-                <p className="text-gray-500 text-sm">{casinos.filter(c => c.province.includes('Alberta')).length} Licensed Casinos</p>
+                <p className="text-gray-500 text-sm">{albertaCount} Licensed Casinos</p>
               </div>
             </div>
             <p className="text-gray-600 text-sm leading-relaxed mb-4">
@@ -279,7 +292,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* section */}
+      {/* Final CTA */}
       <section className="bg-gradient-to-r from-forest-900 via-green-800 to-forest-900 py-14">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center">
           <h2 className="font-display text-3xl md:text-4xl font-bold text-white mb-4">

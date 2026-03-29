@@ -1,6 +1,7 @@
+export const dynamic = 'force-dynamic';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { casinos } from '@/lib/casinos';
+import { getAllCasinos, getAllBonuses } from '@/lib/data';
 import StarRating from '@/components/StarRating';
 
 export const metadata: Metadata = {
@@ -8,6 +9,8 @@ export const metadata: Metadata = {
   description:
     'Find the best casino bonuses for Ontario and Alberta players. Welcome bonuses, free spins, and no-deposit offers from licensed Canadian casinos.',
 };
+
+export const revalidate = 3600;
 
 const bonusTypes = [
   { id: 'welcome', label: '🎁 Welcome Bonuses', icon: '🎁' },
@@ -35,8 +38,25 @@ const bonusGuide = [
   },
 ];
 
-export default function BonusesPage() {
+export default async function BonusesPage() {
+  const [casinos, bonuses] = await Promise.all([getAllCasinos(), getAllBonuses()]);
+
+  // Use Payload bonuses if available, otherwise fall back to casino welcome bonuses
+  const welcomeBonuses = bonuses.filter((b) => b.bonusType === 'welcome');
   const sortedCasinos = [...casinos].sort((a, b) => b.rating - a.rating);
+
+  // Static no-deposit and free-spins sections (hardcoded as they're editorial)
+  const noDepositOffers = [
+    { casino: 'BetMGM Casino', offer: '$25 Free on Sign-Up', note: 'No deposit needed. 30x wagering on winnings.', slug: 'betmgm' },
+    { casino: 'FanDuel Casino', offer: '$10 Free Bonus Bet', note: 'Auto-credited after registration. No code needed.', slug: 'fanduel' },
+    { casino: 'PointsBet Casino', offer: '$10 in Casino Credits', note: 'No wagering required on credits.', slug: 'pointsbet' },
+  ];
+
+  const freeSpinsOffers = [
+    { casino: 'Bet99', offer: '100 Free Spins on Book of Dead', note: 'Awarded after $50+ first deposit. Value: $0.20/spin.', slug: 'bet99' },
+    { casino: 'DraftKings Casino', offer: '50 Free Spins on Starburst', note: 'Included in welcome package. $0.40/spin.', slug: 'draftkings' },
+    { casino: 'Sports Interaction', offer: '30 Free Spins on Mega Moolah', note: 'Available to new players on first deposit.', slug: 'sports-interaction' },
+  ];
 
   return (
     <>
@@ -111,7 +131,9 @@ export default function BonusesPage() {
                         <Link href={`/casinos/${casino.slug}`} className="font-bold text-gray-900 hover:text-green-700">
                           {casino.name}
                         </Link>
-                        <div className="text-xs text-green-600 font-medium">{casino.licenseInfo}</div>
+                        {casino.licenseInfo && (
+                          <div className="text-xs text-green-600 font-medium">{casino.licenseInfo}</div>
+                        )}
                       </div>
                     </div>
                   </td>
@@ -201,11 +223,7 @@ export default function BonusesPage() {
           <h2 className="section-title mb-2">🆓 No Deposit Bonuses</h2>
           <p className="text-gray-500 mb-8">Try before you deposit — risk-free offers for new Canadian players</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {[
-              { casino: 'BetMGM Casino', offer: '$25 Free on Sign-Up', note: 'No deposit needed. 30x wagering on winnings.', slug: 'betmgm' },
-              { casino: 'FanDuel Casino', offer: '$10 Free Bonus Bet', note: 'Auto-credited after registration. No code needed.', slug: 'fanduel' },
-              { casino: 'PointsBet Casino', offer: '$10 in Casino Credits', note: 'No wagering required on credits.', slug: 'pointsbet' },
-            ].map((item) => (
+            {noDepositOffers.map((item) => (
               <div key={item.casino} className="card p-5">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-2xl">🆓</span>
@@ -227,11 +245,7 @@ export default function BonusesPage() {
         <h2 className="section-title mb-2">🎰 Free Spins Offers</h2>
         <p className="text-gray-500 mb-8">Free spins on popular slots — included with welcome packages</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {[
-            { casino: 'Bet99', offer: '100 Free Spins on Book of Dead', note: 'Awarded after $50+ first deposit. Value: $0.20/spin.', slug: 'bet99' },
-            { casino: 'DraftKings Casino', offer: '50 Free Spins on Starburst', note: 'Included in welcome package. $0.40/spin.', slug: 'draftkings' },
-            { casino: 'Sports Interaction', offer: '30 Free Spins on Mega Moolah', note: 'Available to new players on first deposit.', slug: 'sports-interaction' },
-          ].map((item) => (
+          {freeSpinsOffers.map((item) => (
             <div key={item.casino} className="card p-5">
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-2xl">🎰</span>

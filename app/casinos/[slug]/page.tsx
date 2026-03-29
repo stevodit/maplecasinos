@@ -1,20 +1,28 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { casinos, getCasinoBySlug } from '@/lib/casinos';
+import { getAllCasinoSlugs, getAllCasinos, getCasinoBySlug } from '@/lib/data';
 import StarRating from '@/components/StarRating';
 import CasinoCard from '@/components/CasinoCard';
 
+export const revalidate = 3600;
+
 interface PageProps {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }
 
 export async function generateStaticParams() {
-  return casinos.map((c) => ({ slug: c.slug }));
+  try {
+    const slugs = await getAllCasinoSlugs();
+    return slugs.map((slug) => ({ slug }));
+  } catch {
+    return [];
+  }
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const casino = getCasinoBySlug(params.slug);
+  const { slug } = await params;
+  const casino = await getCasinoBySlug(slug);
   if (!casino) return { title: 'Casino Not Found' };
   return {
     title: `${casino.name} Review ${new Date().getFullYear()} — Bonus, Ratings & More`,
@@ -32,8 +40,9 @@ const ratingCategories = [
   { label: 'Responsible Gambling', weight: 0.1 },
 ];
 
-export default function CasinoReviewPage({ params }: PageProps) {
-  const casino = getCasinoBySlug(params.slug);
+export default async function CasinoReviewPage({ params }: PageProps) {
+  const { slug } = await params;
+  const casino = await getCasinoBySlug(slug);
   if (!casino) notFound();
 
   // Generate mock per-category ratings from the overall rating
@@ -43,7 +52,8 @@ export default function CasinoReviewPage({ params }: PageProps) {
     return Math.max(3, Math.min(5, Math.round((seed + variance) * 10) / 10));
   });
 
-  const otherCasinos = casinos.filter((c) => c.slug !== casino.slug).slice(0, 3);
+  const allCasinos = await getAllCasinos();
+  const otherCasinos = allCasinos.filter((c) => c.slug !== casino.slug).slice(0, 3);
 
   return (
     <>
@@ -67,11 +77,13 @@ export default function CasinoReviewPage({ params }: PageProps) {
 
             {/* Hero block */}
             <div className="card p-6 md:p-8">
-              <div className="flex flex-wrap gap-1.5 mb-4">
-                {casino.tags.map((tag) => (
-                  <span key={tag} className="badge badge-gold">{tag}</span>
-                ))}
-              </div>
+              {casino.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-4">
+                  {casino.tags.map((tag) => (
+                    <span key={tag} className="badge badge-gold">{tag}</span>
+                  ))}
+                </div>
+              )}
 
               <div className="flex items-start gap-5">
                 <div className="flex-shrink-0 w-24 h-24 rounded-2xl bg-gradient-to-br from-green-700 to-forest-900 flex items-center justify-center shadow-xl">
@@ -81,19 +93,27 @@ export default function CasinoReviewPage({ params }: PageProps) {
                   <h1 className="font-display text-3xl md:text-4xl font-bold text-forest-900">{casino.name} Review</h1>
                   <div className="flex flex-wrap items-center gap-3 mt-2">
                     <StarRating rating={casino.rating} size="lg" />
-                    <span className="text-sm text-gray-500">({casino.reviewCount.toLocaleString()} player reviews)</span>
+                    {casino.reviewCount > 0 && (
+                      <span className="text-sm text-gray-500">({casino.reviewCount.toLocaleString()} player reviews)</span>
+                    )}
                   </div>
                   <div className="flex flex-wrap gap-2 mt-3">
                     {casino.province.map((p) => (
                       <span key={p} className="badge badge-green">📍 {p}</span>
                     ))}
-                    <span className="badge bg-blue-50 text-blue-700 border border-blue-200">✅ {casino.licenseInfo}</span>
-                    <span className="badge bg-gray-100 text-gray-600 border border-gray-200">Est. {casino.established}</span>
+                    {casino.licenseInfo && (
+                      <span className="badge bg-blue-50 text-blue-700 border border-blue-200">✅ {casino.licenseInfo}</span>
+                    )}
+                    {casino.established > 0 && (
+                      <span className="badge bg-gray-100 text-gray-600 border border-gray-200">Est. {casino.established}</span>
+                    )}
                   </div>
                 </div>
               </div>
 
-              <p className="mt-5 text-gray-700 leading-relaxed">{casino.shortReview}</p>
+              {casino.shortReview && (
+                <p className="mt-5 text-gray-700 leading-relaxed">{casino.shortReview}</p>
+              )}
 
               <div className="mt-6 flex flex-col sm:flex-row gap-3">
                 <Link
@@ -124,32 +144,55 @@ export default function CasinoReviewPage({ params }: PageProps) {
             <div className="card p-6">
               <h2 className="font-display text-xl font-bold text-forest-900 mb-4">Quick Facts</h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                {[
-                  { label: 'Min Deposit', value: casino.minDeposit, icon: '💵' },
-                  { label: 'Withdrawal Time', value: casino.withdrawalTime, icon: '⚡' },
-                  { label: 'Game Count', value: `${casino.gameCount}+`, icon: '🎮' },
-                  { label: 'Established', value: casino.established.toString(), icon: '📅' },
-                  { label: 'Licence', value: casino.licenseInfo, icon: '🛡️' },
-                  { label: 'Provinces', value: casino.province.join(', '), icon: '📍' },
-                ].map((fact) => (
-                  <div key={fact.label} className="bg-gray-50 rounded-xl p-3">
-                    <div className="text-xl mb-1">{fact.icon}</div>
-                    <div className="text-xs text-gray-500 uppercase tracking-wide">{fact.label}</div>
-                    <div className="font-semibold text-gray-800 text-sm mt-0.5">{fact.value}</div>
+                {casino.minDeposit && (
+                  <div className="bg-gray-50 rounded-xl p-3">
+                    <div className="text-xl mb-1">💵</div>
+                    <div className="text-xs text-gray-500 uppercase tracking-wide">Min Deposit</div>
+                    <div className="font-semibold text-gray-800 text-sm mt-0.5">{casino.minDeposit}</div>
                   </div>
-                ))}
+                )}
+                {casino.withdrawalTime && (
+                  <div className="bg-gray-50 rounded-xl p-3">
+                    <div className="text-xl mb-1">⚡</div>
+                    <div className="text-xs text-gray-500 uppercase tracking-wide">Withdrawal Time</div>
+                    <div className="font-semibold text-gray-800 text-sm mt-0.5">{casino.withdrawalTime}</div>
+                  </div>
+                )}
+                {casino.established > 0 && (
+                  <div className="bg-gray-50 rounded-xl p-3">
+                    <div className="text-xl mb-1">📅</div>
+                    <div className="text-xs text-gray-500 uppercase tracking-wide">Established</div>
+                    <div className="font-semibold text-gray-800 text-sm mt-0.5">{casino.established}</div>
+                  </div>
+                )}
+                {casino.licenseInfo && (
+                  <div className="bg-gray-50 rounded-xl p-3">
+                    <div className="text-xl mb-1">🛡️</div>
+                    <div className="text-xs text-gray-500 uppercase tracking-wide">Licence</div>
+                    <div className="font-semibold text-gray-800 text-sm mt-0.5">{casino.licenseInfo}</div>
+                  </div>
+                )}
+                {casino.province.length > 0 && (
+                  <div className="bg-gray-50 rounded-xl p-3">
+                    <div className="text-xl mb-1">📍</div>
+                    <div className="text-xs text-gray-500 uppercase tracking-wide">Provinces</div>
+                    <div className="font-semibold text-gray-800 text-sm mt-0.5">{casino.province.join(', ')}</div>
+                  </div>
+                )}
               </div>
 
-              <div className="mt-4">
-                <div className="text-xs text-gray-500 uppercase tracking-wide mb-2 font-medium">Payment Methods</div>
-                <div className="flex flex-wrap gap-2">
-                  {casino.paymentMethods.map((m) => (
-                    <span key={m} className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm">
-                      {m}
-                    </span>
-                  ))}
+              {casino.paymentMethods.length > 0 && (
+                <div className="mt-4">
+                  <div className="text-xs text-gray-500 uppercase tracking-wide mb-2 font-medium">Payment Methods</div>
+                  <div className="flex flex-wrap gap-2">
+                    {casino.paymentMethods.map((m) => (
+                      <span key={m} className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm">
+                        {m}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Detailed Ratings */}
@@ -180,49 +223,57 @@ export default function CasinoReviewPage({ params }: PageProps) {
             </div>
 
             {/* Pros & Cons */}
-            <div className="card p-6">
-              <h2 className="font-display text-xl font-bold text-forest-900 mb-4">Pros & Cons</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <h3 className="text-green-700 font-bold text-sm uppercase tracking-wide mb-3 flex items-center gap-1.5">
-                    <span>✅</span> Pros
-                  </h3>
-                  <ul className="space-y-2">
-                    {casino.pros.map((pro) => (
-                      <li key={pro} className="flex items-start gap-2 text-sm text-gray-700">
-                        <span className="text-green-500 font-black mt-0.5 flex-shrink-0">+</span>
-                        {pro}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div>
-                  <h3 className="text-red-600 font-bold text-sm uppercase tracking-wide mb-3 flex items-center gap-1.5">
-                    <span>⚠️</span> Cons
-                  </h3>
-                  <ul className="space-y-2">
-                    {casino.cons.map((con) => (
-                      <li key={con} className="flex items-start gap-2 text-sm text-gray-700">
-                        <span className="text-red-400 font-black mt-0.5 flex-shrink-0">−</span>
-                        {con}
-                      </li>
-                    ))}
-                  </ul>
+            {(casino.pros.length > 0 || casino.cons.length > 0) && (
+              <div className="card p-6">
+                <h2 className="font-display text-xl font-bold text-forest-900 mb-4">Pros & Cons</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {casino.pros.length > 0 && (
+                    <div>
+                      <h3 className="text-green-700 font-bold text-sm uppercase tracking-wide mb-3 flex items-center gap-1.5">
+                        <span>✅</span> Pros
+                      </h3>
+                      <ul className="space-y-2">
+                        {casino.pros.map((pro) => (
+                          <li key={pro} className="flex items-start gap-2 text-sm text-gray-700">
+                            <span className="text-green-500 font-black mt-0.5 flex-shrink-0">+</span>
+                            {pro}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {casino.cons.length > 0 && (
+                    <div>
+                      <h3 className="text-red-600 font-bold text-sm uppercase tracking-wide mb-3 flex items-center gap-1.5">
+                        <span>⚠️</span> Cons
+                      </h3>
+                      <ul className="space-y-2">
+                        {casino.cons.map((con) => (
+                          <li key={con} className="flex items-start gap-2 text-sm text-gray-700">
+                            <span className="text-red-400 font-black mt-0.5 flex-shrink-0">−</span>
+                            {con}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Full Review */}
-            <div className="card p-6">
-              <h2 className="font-display text-2xl font-bold text-forest-900 mb-5">
-                Full {casino.name} Review
-              </h2>
-              <div className="prose prose-sm max-w-none text-gray-700">
-                {casino.fullReview.split('\n\n').map((paragraph, i) => (
-                  <p key={i} className="mb-4 leading-relaxed">{paragraph}</p>
-                ))}
+            {casino.fullReview && (
+              <div className="card p-6">
+                <h2 className="font-display text-2xl font-bold text-forest-900 mb-5">
+                  Full {casino.name} Review
+                </h2>
+                <div className="prose prose-sm max-w-none text-gray-700">
+                  {casino.fullReview.split('\n\n').map((paragraph, i) => (
+                    <p key={i} className="mb-4 leading-relaxed">{paragraph}</p>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Bottom CTA */}
             <div className="bg-gradient-to-r from-forest-900 to-green-800 rounded-2xl p-6 md:p-8 text-center">
@@ -279,18 +330,24 @@ export default function CasinoReviewPage({ params }: PageProps) {
               </Link>
 
               <div className="mt-4 space-y-2 text-xs text-gray-500">
-                <div className="flex justify-between">
-                  <span>Min Deposit:</span>
-                  <span className="font-medium text-gray-700">{casino.minDeposit}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Withdrawal:</span>
-                  <span className="font-medium text-gray-700">{casino.withdrawalTime}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Licence:</span>
-                  <span className="font-medium text-gray-700 text-right">{casino.licenseInfo}</span>
-                </div>
+                {casino.minDeposit && (
+                  <div className="flex justify-between">
+                    <span>Min Deposit:</span>
+                    <span className="font-medium text-gray-700">{casino.minDeposit}</span>
+                  </div>
+                )}
+                {casino.withdrawalTime && (
+                  <div className="flex justify-between">
+                    <span>Withdrawal:</span>
+                    <span className="font-medium text-gray-700">{casino.withdrawalTime}</span>
+                  </div>
+                )}
+                {casino.licenseInfo && (
+                  <div className="flex justify-between">
+                    <span>Licence:</span>
+                    <span className="font-medium text-gray-700 text-right">{casino.licenseInfo}</span>
+                  </div>
+                )}
               </div>
 
               <p className="text-center text-xs text-gray-400 mt-4">
@@ -299,14 +356,16 @@ export default function CasinoReviewPage({ params }: PageProps) {
             </div>
 
             {/* Other casinos */}
-            <div>
-              <h3 className="font-display text-lg font-bold text-forest-900 mb-3">Also Compare</h3>
-              <div className="space-y-3">
-                {otherCasinos.map((c) => (
-                  <CasinoCard key={c.slug} casino={c} variant="compact" />
-                ))}
+            {otherCasinos.length > 0 && (
+              <div>
+                <h3 className="font-display text-lg font-bold text-forest-900 mb-3">Also Compare</h3>
+                <div className="space-y-3">
+                  {otherCasinos.map((c) => (
+                    <CasinoCard key={c.slug} casino={c} variant="compact" />
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
