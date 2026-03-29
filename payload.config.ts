@@ -1,6 +1,6 @@
 import { buildConfig } from 'payload'
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
-import { sqliteAdapter } from '@payloadcms/db-sqlite'
+import { postgresAdapter } from '@payloadcms/db-postgres'
 import { Casinos } from './collections/Casinos'
 import { Bonuses } from './collections/Bonuses'
 import { Users } from './collections/Users'
@@ -25,9 +25,9 @@ export default buildConfig({
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },
-  db: sqliteAdapter({
-    client: {
-      url: `file:${path.resolve(dirname, 'payload.db')}`,
+  db: postgresAdapter({
+    pool: {
+      connectionString: process.env.DATABASE_URL,
     },
   }),
   sharp: undefined,
